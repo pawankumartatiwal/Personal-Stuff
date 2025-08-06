@@ -1,0 +1,57 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <DHT.h>
+
+#define DHTPIN 4            // DHT11 data pin connected to ESP32 GPIO4
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+const char* ssid = "wifi ssid";
+const char* password = "password";
+
+// Replace with your live Hostinger server IP or domain and path to data.php
+const char* serverName = "your website sever url";
+//eg: https://jprtemp.pktatiwal.com/data.php
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(800);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected.");
+  dht.begin();
+}
+
+void loop() {
+  float temperature = dht.readTemperature(); // Celsius
+  float humidity = dht.readHumidity();       // Percent
+
+  if (isnan(temperature) || isnan(humidity)) {
+    Serial.println("Failed to read from DHT11 sensor");
+  } else {
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      http.begin(serverName);
+      http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+      String postData = "temperature=" + String(temperature) + "&humidity=" + String(humidity);
+      int httpResponseCode = http.POST(postData);
+
+      Serial.print("Sent temp: ");
+      Serial.print(temperature);
+      Serial.print(", hum: ");
+      Serial.print(humidity);
+      Serial.print(". Server Response: ");
+      Serial.println(httpResponseCode);
+
+      http.end();
+    } else {
+      Serial.println("WiFi not connected, data not sent.");
+    }
+  }
+
+  delay(10000); // Wait 10 second before sending next reading
+}
